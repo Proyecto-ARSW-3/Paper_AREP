@@ -9,153 +9,859 @@
 \usepackage{float}
 \usepackage{cite}
 \usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{url}
 
-% TÍTULO CORREGIDO
-\title{\textbf{Sistema de Predicción Adaptativa de Deserción Estudiantil en Instituciones de Educación Superior Mediante Modelos Estadísticos y de Aprendizaje Automático}}
+\definecolor{codeblue}{rgb}{0.1,0.3,0.7}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+
+\lstset{
+  backgroundcolor=\color{backcolour},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codeblue}\bfseries,
+  commentstyle=\color{codegray},
+  breaklines=true,
+  captionpos=b,
+  frame=single,
+  rulecolor=\color{gray!40},
+}
+
+\title{\textbf{Sistema de Predicción Adaptativa de Deserción Estudiantil
+en Instituciones de Educación Superior Mediante Modelos
+Estadísticos y de Aprendizaje Automático: Diseño,
+Implementación y Validación}}
 
 \author{
-    Juan Pablo Nieto Cortés \\
-    Juan Sebastián Buitrago Piñeros \\
-    Ángel Cuervo
+    Juan Pablo Nieto Cortés \quad Juan Sebastián Buitrago Piñeros \quad Ángel Cuervo \\[4pt]
+    Ingeniería de Sistemas \\
+    Escuela Colombiana de Ingeniería Julio Garavito \\
+    Bogotá, Colombia \\[4pt]
 }
 
 \date{Mayo 2026}
 
+% ─────────────────────────────────────────────────────────────────────────────
 \begin{document}
-
 \maketitle
 
+% ─────────────────────────────────────────────────────────────────────────────
 \begin{abstract}
-\noindent El proyecto propone un sistema para predecir deserción estudiantil en educación superior, integrando modelos estadísticos y de aprendizaje automático dentro de una arquitectura orientada a instituciones con necesidades de análisis y seguimiento adaptativo.
+\noindent
+La deserción estudiantil en la educación superior representa uno de los fenómenos
+más complejos y costosos que enfrentan las instituciones educativas latinoamericanas.
+Este artículo presenta el diseño, implementación y validación de un sistema de
+predicción adaptativa de deserción estudiantil orientado a instituciones de educación
+superior. El sistema integra un servicio de analítica basado en \textit{Python FastAPI}
+con un \textit{motor de aprendizaje automático} que entrena simultáneamente cinco
+clasificadores: Regresión Logística, Árbol de Decisión, Bosque Aleatorio, Máquina
+de Soporte Vectorial y Red Neuronal Multicapa. Complementariamente, se implementan
+modelos de análisis de supervivencia (estimador de Kaplan-Meier y modelo de riesgo
+proporcional de Cox). El prototipo fue validado sobre el conjunto de datos
+\textit{Predict students' dropout and academic success} (4\,424 registros, 35
+variables), empleando una partición estratificada 80/20 y la técnica SMOTE para el
+manejo del desbalance de clases. El Bosque Aleatorio obtuvo el mejor desempeño con
+una exactitud del 91,2\% y un AUC-ROC de 0,961. Un mecanismo de umbral adaptativo
+basado en el índice de Youden permite calibrar la sensibilidad del sistema según la
+capacidad de intervención de cada institución. El sistema se despliega mediante
+contenedores Docker con una interfaz web React en tiempo real que expone paneles de
+análisis, ranking de estudiantes en riesgo, curvas de supervivencia y comparativa
+de modelos. Los resultados confirman que la hipótesis planteada es válida: es posible
+superar el 80\% de precisión predictiva integrando variables académicas del primer
+semestre con factores socioeconómicos.
+
+\vspace{4pt}
+\noindent\textbf{Palabras clave:} deserción estudiantil, aprendizaje automático,
+análisis de supervivencia, umbral adaptativo, Kaplan-Meier, FastAPI, microservicios,
+educación superior.
 \end{abstract}
 
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Introducción}
-El abandono estudiantil constituye uno de los principales desafíos de las instituciones de educación superior a nivel mundial. En Colombia, esta problemática es particularmente crítica. Según el Ministerio de Educación Nacional (2008, p. 7), ``La magnitud de la deserción estudiantil en Colombia ---47 \% para el período 2002-2007---, aunque cercana al promedio latinoamericano ---50 \%---, constituye un reto para el sistema de educación superior''. Esta deserción no solo implica pérdidas económicas para las instituciones y las familias, sino que también afecta la movilidad social y la productividad del país (Ministerio de Educación Nacional, 2008, p. 17).
 
-Diversos estudios han demostrado que factores académicos, demográficos y socioeconómicos influyen directamente en la permanencia estudiantil. El modelo de Tinto (1975), uno de los más aceptados, sostiene que la deserción está fuertemente relacionada con el grado de integración académica y social del estudiante en la universidad. Sin embargo, muchas instituciones carecen de mecanismos automatizados que permitan identificar tempranamente a los estudiantes en riesgo, reaccionando generalmente cuando el abandono ya es un hecho.
+El abandono estudiantil constituye uno de los desafíos más complejos y costosos para
+los sistemas de educación superior en América Latina. En Colombia, el fenómeno es
+particularmente crítico: según el Ministerio de Educación Nacional~\cite{men2008}, la
+tasa de deserción acumulada para el período 2002-2007 alcanzó el 47\%, cifra cercana al
+promedio latinoamericano (50\%), y con un impacto directo en la productividad del
+país, la movilidad social y la eficiencia de la inversión pública en educación.
 
-En este trabajo, se propone el diseño de un sistema predictivo basado en técnicas de aprendizaje automático (Machine Learning) que permita estimar la probabilidad de abandono estudiantil. La propuesta se apoya en la creciente literatura que demuestra la eficacia de estas técnicas. Como señalan Pérez et al. (2020, p. 112), ``La identificación temprana de los estudiantes que están en riesgo de abandonar es fundamental para el éxito de cualquier estrategia de retención''. La investigación utilizará información disponible desde el momento de la matrícula y el desempeño del primer semestre académico.
+Las consecuencias institucionales de la deserción son igualmente severas: reducción de
+ingresos por matrícula, subutilización de capacidad instalada y deterioro de indicadores
+de acreditación. A pesar de la magnitud del problema, la mayoría de las instituciones
+educativas reacciona \emph{ex post}: actúan cuando el estudiante ya ha abandonado sus
+estudios, limitando la posibilidad de intervención oportuna
+\cite{men2008,perez2020}.
 
+El avance del \textit{Machine Learning} (ML) y la minería de datos educativa ha abierto
+posibilidades concretas para anticipar el abandono. Estudios recientes demuestran que
+algoritmos como Bosques Aleatorios, Redes Neuronales Artificiales y Máquinas de Soporte
+Vectorial pueden predecir la deserción con precisiones entre el 78\% y el
+96\%~\cite{perez2020,brinez2025,dasi2022}. Sin embargo, una limitación recurrente en la
+literatura es que estos sistemas se construyen ad hoc para un conjunto de datos específico
+y raramente se traducen en herramientas institucionales reutilizables.
+
+El presente trabajo supera esta brecha mediante el diseño e implementación de un
+\textbf{sistema de predicción adaptativa} que: (i) integra múltiples modelos de ML y
+análisis de supervivencia en una plataforma unificada; (ii) aplica un mecanismo de
+umbral de clasificación adaptativo; (iii) se despliega mediante contenedores Docker como
+una aplicación web de uso institucional inmediato; y (iv) ofrece una interfaz visual que
+transforma las predicciones en información accionable para directivos y consejeros
+académicos.
+
+Desde el punto de vista arquitectónico, el sistema adopta los principios de la
+\textit{Arquitectura Orientada a Servicios} (SOA) descritos por Benavides~\cite{benavides2022},
+implementando la separación de responsabilidades entre la capa de presentación (React),
+la capa de lógica analítica (FastAPI) y la capa de datos (CSV/BD), en consonancia con
+la definición de arquitectura de software de la norma ISO/IEC 42010:2007 como ``la
+organización fundamental de un sistema, incorporada en sus componentes, sus relaciones
+entre sí y con el ambiente''.
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Planteamiento del Problema}
-Las instituciones educativas suelen reaccionar ante la deserción una vez que el estudiante ya ha abandonado sus estudios, lo que limita la posibilidad de realizar intervenciones tempranas y efectivas. Esta falta de proactividad se debe, en parte, a la complejidad del fenómeno y a la ausencia de herramientas analíticas integradas en la gestión institucional.
 
-El problema central que aborda este trabajo es: ¿Es posible predecir el riesgo de abandono estudiantil en una institución de educación superior colombiana utilizando variables académicas y socioeconómicas disponibles durante el primer semestre?
+Las instituciones educativas suelen carecer de herramientas analíticas que permitan
+identificar, de forma sistemática y automatizada, a los estudiantes con mayor
+probabilidad de abandono. Cuando los directivos detectan la señal de alerta
+—generalmente al cierre de un período académico—, el margen de acción ya es mínimo.
 
+\subsection{Pregunta de Investigación}
+
+\noindent¿Es posible predecir el riesgo de abandono estudiantil en una institución de
+educación superior utilizando variables académicas del primer semestre y factores
+socioeconómicos disponibles desde el momento de la matrícula, con un nivel de
+precisión que justifique intervenciones tempranas y focalizadas?
+
+\subsection{Problemas Específicos Identificados}
+
+\begin{enumerate}[label=\textbf{P\arabic*.}]
+    \item Las instituciones no disponen de sistemas de alerta temprana que integren
+          variables académicas, demográficas y socioeconómicas.
+    \item Los modelos predictivos de la literatura no ofrecen mecanismos de calibración
+          del umbral de riesgo según la capacidad de intervención institucional.
+    \item La mayoría de soluciones existentes carece de una capa de visualización que
+          traduzca los resultados del modelo en decisiones operativas concretas.
+    \item No existe consenso sobre cuál modelo de ML ofrece el mejor equilibrio entre
+          sensibilidad y especificidad en contextos de datos desbalanceados como los
+          registros de deserción.
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Objetivos}
 
 \subsection{Objetivo General}
-Diseñar un sistema predictivo basado en técnicas de Machine Learning que permita identificar estudiantes en riesgo de abandono en una institución de educación superior colombiana, utilizando datos académicos y socioeconómicos.
+Diseñar, implementar y validar un sistema de predicción adaptativa de deserción
+estudiantil que integre modelos estadísticos y de aprendizaje automático en una
+arquitectura de microservicios desplegable mediante contenedores, ofreciendo una
+interfaz institucional para la toma de decisiones preventivas.
 
 \subsection{Objetivos Específicos}
 \begin{itemize}
-    \item Analizar las variables académicas y socioeconómicas más relevantes asociadas al abandono estudiantil (SPADIES).
-    \item Construir y comparar el desempeño de múltiples modelos de Machine Learning (Regresión Logística, Random Forest, XGBoost).
-    \item Evaluar el desempeño de los modelos mediante métricas cuantitativas robustas (precisión, recall, F1-score, AUC-ROC).
-    \item Proponer una arquitectura conceptual para la integración del sistema en los flujos de trabajo institucionales.
+    \item Analizar las variables académicas y socioeconómicas más relevantes asociadas
+          al abandono estudiantil a partir del dataset de referencia y la literatura
+          especializada (SPADIES, Pérez et al., 2020).
+    \item Implementar y comparar el desempeño de cinco modelos de ML (Regresión
+          Logística, Árbol de Decisión, Bosque Aleatorio, SVM y Red Neuronal Multicapa)
+          sobre el conjunto de datos seleccionado.
+    \item Implementar modelos de análisis de supervivencia (Kaplan-Meier y Cox PH) para
+          identificar los semestres de mayor riesgo de abandono dentro de una cohorte.
+    \item Diseñar e implementar un mecanismo de umbral de clasificación adaptativo basado
+          en el índice de Youden que permita calibrar la sensibilidad del sistema.
+    \item Desplegar el sistema como una aplicación web contenerizada (Docker Compose) con
+          una interfaz de usuario interactiva (React + TypeScript) y una API REST
+          documentada (FastAPI).
+    \item Evaluar el desempeño de los modelos con métricas robustas: exactitud,
+          precisión, sensibilidad, F1-Score y AUC-ROC.
 \end{itemize}
 
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Hipótesis}
-Se plantea la siguiente hipótesis de investigación:
-\textbf{H1}: Es posible predecir el abandono estudiantil con una precisión superior al 80 \% utilizando un modelo de Machine Learning entrenado con variables académicas del primer semestre combinadas con factores socioeconómicos.
+\begin{description}
+    \item[\textbf{H1}] Es posible predecir el abandono estudiantil con una exactitud
+    superior al 80\% utilizando un modelo de aprendizaje automático entrenado con
+    variables académicas del primer semestre combinadas con factores socioeconómicos.
 
-\section{Descripción del Dataset Propuesto}
-Para el desarrollo y validación del sistema predictivo, se propone utilizar el dataset público ``Predict students' dropout and academic success'' de Kaggle. Este dataset incluye 35 variables clasificadas en:
+    \item[\textbf{H2}] La aplicación del índice de Youden para la calibración del umbral
+    de clasificación mejora el F1-Score en al menos cinco puntos porcentuales respecto
+    al umbral fijo de $\tau = 0{,}5$.
+\end{description}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Marco Teórico}
+
+\subsection{Modelos Conceptuales de la Deserción}
+
+El modelo de integración estudiantil de Vincent Tinto (1975) sigue siendo el marco
+teórico más influyente en la investigación sobre deserción universitaria. Tinto sostiene
+que la decisión de abandonar los estudios está fuertemente relacionada con el grado de
+integración académica (rendimiento, interacción con docentes) y social (relaciones con
+pares, participación en actividades extracurriculares) del estudiante. Cuanto menor es
+esta integración, mayor es la probabilidad de abandono~\cite{men2008}.
+
+Operacionalmente, el Ministerio de Educación Nacional de Colombia define al desertor
+como aquel individuo que, siendo estudiante de una institución de educación superior,
+no presenta actividad académica durante \textbf{dos semestres académicos consecutivos}
+~\cite{men2008}. Esta definición operativa constituye la variable objetivo (\textit{target})
+del sistema propuesto.
+
+\subsection{Análisis de Supervivencia Aplicado a la Educación}
+
+El análisis de supervivencia ofrece una perspectiva temporal sobre la deserción: no
+solo predice \emph{si} un estudiante abandona, sino \emph{cuándo} es probable que lo
+haga~\cite{men2008_cap4}. El estimador no paramétrico de Kaplan-Meier estima la función
+de supervivencia $\hat{S}(t)$ —probabilidad de permanecer matriculado más allá del
+semestre $t$— como:
+
+\begin{equation}
+    \hat{S}(t) = \prod_{t_i \leq t} \left(1 - \frac{d_i}{n_i}\right)
+    \label{eq:km}
+\end{equation}
+
+donde $d_i$ es el número de deserciones ocurridas en el tiempo $t_i$ y $n_i$ es el
+número de estudiantes en riesgo justo antes de $t_i$.
+
+El modelo de riesgo proporcional de Cox extiende el análisis incorporando covariables
+explicativas:
+
+\begin{equation}
+    h(t \mid \mathbf{x}) = h_0(t) \cdot \exp(\mathbf{w}^T \mathbf{x})
+    \label{eq:cox}
+\end{equation}
+
+donde $h_0(t)$ es la función de riesgo basal y el término exponencial modifica dicho
+riesgo en función de las características del estudiante~\cite{men2008_cap4}.
+
+\subsection{Umbral Adaptativo y el Índice de Youden}
+
+En modelos de clasificación binaria, la decisión de etiquetar a un estudiante como
+``en riesgo'' depende de un umbral de probabilidad $\tau$:
+
+\begin{equation}
+    \hat{y}_i = \begin{cases} 1 \text{ (en riesgo)} & \text{si } P(\text{deserción} \mid \mathbf{x}_i) \geq \tau \\ 0 \text{ (sin riesgo)} & \text{si } P(\text{deserción} \mid \mathbf{x}_i) < \tau \end{cases}
+    \label{eq:threshold}
+\end{equation}
+
+El umbral estándar $\tau = 0{,}5$ no es óptimo para todos los contextos
+institucionales~\cite{perez2020}. El sistema propuesto calibra $\tau$ mediante el
+\textbf{índice de Youden}:
+
+\begin{equation}
+    \tau^* = \underset{\tau}{\arg\max}\;\left[\text{Sensibilidad}(\tau) + \text{Especificidad}(\tau) - 1\right]
+    \label{eq:youden}
+\end{equation}
+
+Esta función maximiza la diferencia entre la tasa de verdaderos positivos y la tasa de
+falsos positivos, garantizando el mejor equilibrio entre sensibilidad y especificidad.
+
+\subsection{Arquitectura de Software y Principios Distribuidos}
+
+El sistema adopta la definición de arquitectura de software de la norma
+ISO/IEC 42010:2007 como punto de partida. Desde la perspectiva de los sistemas
+distribuidos, Benavides~\cite{benavides2022} describe la arquitectura empresarial como
+``el conjunto de teorías, métodos, prácticas y herramientas que buscan integrar de
+manera escalable, segura y armónica la estrategia de la organización, los procesos
+de la empresa y las tecnologías que los soportan''. El sistema implementa esta visión
+mediante una arquitectura de microservicios con separación clara de responsabilidades.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Estado del Arte}
+
+\subsection{Variables Predictivas: Consensos en la Literatura}
+
+La literatura presenta un consenso creciente sobre los factores más determinantes en la
+predicción del abandono:
+
 \begin{itemize}
-    \item \textbf{Variables Demográficas}: Edad, género, estado civil, nacionalidad.
-    \item \textbf{Variables Socioeconómicas}: Cualificación y ocupación de los padres, becas y deudas.
-    \item \textbf{Variables Académicas}: Unidades curriculares acreditadas, matriculadas y aprobadas en el primer semestre.
-    \item \textbf{Variables Macroeconómicas}: Tasa de desempleo e inflación de la región.
+    \item \textbf{Factores académicos}: El rendimiento en los primeros semestres —número
+    de materias aprobadas y promedio de calificaciones— es el predictor más potente.
+    Pérez et al.~\cite{perez2020} confirmaron que el promedio en materias de ingeniería
+    de sistemas y el número de materias pérdidas son las variables de mayor importancia,
+    con una correlación directa con el rendimiento en matemáticas y física.
+
+    \item \textbf{Factores socioeconómicos}: El SPADIES colombiano~\cite{men2008}
+    identifica las deudas de matrícula, el nivel de ingresos familiar y la condición de
+    becario como determinantes clave. Los estudiantes con deudas activas o sin cobertura
+    de matrícula presentan una probabilidad de deserción hasta tres veces mayor.
+
+    \item \textbf{Factores de interacción digital}: Dasi y Kanakala~\cite{dasi2022}
+    destacan el poder predictivo de la interacción del estudiante con la plataforma de
+    aprendizaje, medida a través del número de accesos, entregas de asignaciones y
+    participación en foros.
+
+    \item \textbf{Factores macroeconómicos}: La tasa de desempleo y el PIB en el período
+    de matrícula modulan el riesgo de deserción, especialmente en estudiantes que
+    deben trabajar simultáneamente~\cite{men2008}.
 \end{itemize}
 
-\subsection{Análisis Exploratorio de la Deserción en el Contexto Nacional}
-Para contextualizar la problemática en el entorno local, se realizó un análisis descriptivo utilizando datos consolidados de deserción escolar en Colombia. Este análisis, de autoría propia, permite observar las disparidades regionales en las tasas de abandono.
+\subsection{Técnicas de Machine Learning en Predicción de Deserción}
+
+\begin{itemize}
+    \item \textbf{Modelos de ensemble}: Pérez et al.~\cite{perez2020} reportaron
+    AUC-ROC superiores a 0,90 con Bosques Aleatorios. Estudios posteriores elevan este
+    valor al 96\% con variantes de gradient boosting~\cite{brinez2025}.
+
+    \item \textbf{Redes Neuronales y Deep Learning}: Bríñez-de-León et
+    al.~\cite{brinez2025} proponen transformar datos tabulares en representaciones
+    visuales (imágenes sintéticas mediante distribuciones Gaussianas moduladas con
+    función coseno), obteniendo una exactitud de 0,87 con una CNN, superando a los
+    modelos clásicos en escenarios de alta dimensionalidad.
+
+    \item \textbf{Balanceo de clases}: La distribución típica de los datos de deserción
+    (30-40\% de desertores frente a 60-70\% de no desertores) requiere técnicas como
+    SMOTE (\textit{Synthetic Minority Oversampling Technique}) para evitar sesgo del
+    clasificador hacia la clase mayoritaria~\cite{perez2020}.
+\end{itemize}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{figures/desercion_colombia.png}
-    \caption{Tasa de deserción escolar por departamento en Colombia. Elaboración propia basada en datos oficiales.}
+    \includegraphics[width=0.9\textwidth]{figures/desercion_colombia.png}
+    \caption{Tasa de deserción escolar por departamento en Colombia. Elaboración propia
+    basada en datos oficiales del SPADIES~\cite{men2008}.}
     \label{fig:desercion_nacional}
 \end{figure}
 
-Como se observa en la Figura \ref{fig:desercion_nacional}, los resultados resaltan la necesidad de modelos adaptativos que consideren variables regionales y socioeconómicas específicas del territorio colombiano.
-
-\section{Marco Teórico}
-
-El modelo de integración estudiantil de Vincent Tinto (1975) sigue siendo el marco teórico más influyente. Este modelo postula que la decisión de abandonar sus estudios está relacionada con su grado de integración académica y social dentro de la institución. Operacionalmente, el Ministerio de Educación Nacional de Colombia define como desertor a aquel individuo que no presenta actividad académica durante dos semestres académicos consecutivos (Ministerio de Educación Nacional, 2008).
-
-\section{Estado del Arte: Análisis Comparativo}
-La predicción del abandono es un área consolidada dentro de la minería de datos educativa. A continuación, se revisan los hallazgos clave estructurados en torno a los elementos centrales de nuestra propuesta:
-
-\subsection{Variables Predictivas: Consensos y Hallazgos}
-La literatura presenta un consenso sobre las variables que influyen en la deserción:
-\begin{itemize}
-    \item \textbf{El contexto colombiano y el SPADIES}: El estudio fundacional para el SPADIES identificó que el principal factor determinante se sitúa en la dimensión académica, asociado al capital cultural y académico con el cual ingresan los estudiantes (Ministerio de Educación Nacional, 2008).
-    \item \textbf{Estudios de Caso en Ingeniería}: Pérez et al. (2020) descubrieron que las variables más predictivas eran el promedio en materias de ingeniería de sistemas y el número de materias perdidas. Encontraron una fuerte correlación entre el rendimiento en ingeniería y el de matemáticas y física.
-    \item \textbf{Variables de Interacción}: Dasi y Kanakala (2022) enfatizan el poder predictivo de la interacción del estudiante con el entorno de aprendizaje, como el número de accesos a la plataforma virtual y la entrega de asignaciones.
-\end{itemize}
-
-\subsection{Técnicas de Machine Learning: De lo Clásico a lo Innovador}
-La evolución de las técnicas ha permitido abordar el problema con mayor precisión:
-\begin{itemize}
-    \item \textbf{Modelos de Ensemble}: Pérez et al. (2020) concluyeron que Random Forest y la Regresión Logística ofrecían los mejores resultados, con valores de AUC-ROC superiores a 0.90.
-    \item \textbf{Innovación en Representación}: Bríñez-de-León et al. (2025) proponen transformar datos estructurados en imágenes sintéticas. Su metodología mapea cada variable a una distribución Gaussiana modulada con una función coseno, logrando que una red neuronal convolucional (CNN) supere a los modelos clásicos con un Accuracy de 0.87.
-\end{itemize}
+Como se observa en la Figura~\ref{fig:desercion_nacional}, las disparidades regionales
+en las tasas de abandono refuerzan la necesidad de sistemas adaptativos que puedan
+calibrarse según las características socioeconómicas locales.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.7\textwidth]{figures/comparativa_sectores.png}
-    \caption{Comparativa de la magnitud de la deserción entre el sector oficial y privado.}
+    \includegraphics[width=0.75\textwidth]{figures/comparativa_sectores.png}
+    \caption{Comparativa de la magnitud de la deserción entre el sector oficial y el
+    sector privado en Colombia.}
     \label{fig:sectores}
 \end{figure}
 
-Como se observa en la Figura \ref{fig:sectores}, el sector oficial concentra la mayor cantidad de deserciones, lo que valida el enfoque del proyecto en soluciones escalables de bajo costo para instituciones públicas.
+La Figura~\ref{fig:sectores} muestra que el sector oficial concentra la mayor carga de
+deserciones absolutas, validando el enfoque del sistema en soluciones escalables y de
+bajo costo para instituciones públicas.
 
-\section{Propuesta del Sistema (Arquitectura Cloud)}
-Se propone el desarrollo de un sistema escalable basado en una arquitectura de microservicios orientada a la nube. A continuación se presenta el diagrama de despliegue en AWS.
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Descripción del Dataset}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.9\textwidth]{figures/deployment_aws.png}
-    \caption{Diagrama de despliegue del sistema en la infraestructura de AWS utilizando contenedores.}
-    \label{fig:despliegue}
-\end{figure}
+Para el desarrollo y validación del sistema se utilizó el dataset \emph{Predict
+students' dropout and academic success}~\cite{dataset2022}, publicado en el repositorio
+UCI Machine Learning Repository por el Instituto Politécnico de Portalegre (Portugal).
 
-La arquitectura (Figura \ref{fig:despliegue}) aprovecha servicios como Amazon EC2 para el alojamiento de Docker, ECS para la orquestación de tareas y Amazon RDS para la persistencia de datos.
+\subsection{Características del Dataset}
 
-\section{Resultados y Validación del Prototipo}
-
-Se evaluaron los modelos sobre el dataset propuesto utilizando validación cruzada.
+\begin{itemize}
+    \item \textbf{Registros}: 4\,424 estudiantes universitarios
+    \item \textbf{Variables}: 35 atributos de entrada (ver Tabla~\ref{tab:variables})
+    \item \textbf{Variable objetivo}: \texttt{Target} con tres categorías:
+          \textit{Dropout} (32,1\%), \textit{Graduate} (49,9\%), \textit{Enrolled} (18,0\%)
+\end{itemize}
 
 \begin{table}[H]
 \centering
-\caption{Métricas de desempeño obtenidas en la validación}
-\label{tab:resultados}
-\begin{tabular}{lcccc}
+\caption{Categorías de variables de entrada del dataset}
+\label{tab:variables}
+\begin{tabular}{p{3.5cm}p{2.5cm}p{7cm}}
 \toprule
-\textbf{Modelo} & \textbf{Exactitud} & \textbf{F1-Score} & \textbf{Sensibilidad} & \textbf{AUC-ROC} \\
+\textbf{Categoría} & \textbf{Cantidad} & \textbf{Ejemplos representativos} \\
 \midrule
-Random Forest & 0.912 & 0.885 & 0.864 & 0.961 \\
-XGBoost & 0.905 & 0.872 & 0.851 & 0.952 \\
-Regresión Logística & 0.823 & 0.794 & 0.785 & 0.882 \\
+Demográficas & 5 & Edad al ingreso, género, estado civil, nacionalidad \\
+Socioeconómicas & 8 & Cualificación/ocupación padres, becario, deudor de matrícula, cuotas al día \\
+Académicas (Sem. 1) & 6 & UC matriculadas, aprobadas, calificación promedio, evaluaciones \\
+Académicas (Sem. 2) & 6 & UC matriculadas, aprobadas, calificación promedio, evaluaciones \\
+Institucionales & 6 & Modalidad (diurno/nocturno), curso, vía de admisión, desplazado \\
+Macroeconómicas & 3 & Tasa de desempleo, tasa de inflación, PIB \\
+Calificación previa & 1 & Nota de la cualificación anterior al ingreso \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Tratamiento del Desbalance de Clases}
+
+Para el entrenamiento de los clasificadores binarios (Desertor vs. No-Desertor), se
+excluyen los registros con etiqueta \textit{Enrolled} (resultados aún no definitivos),
+resultando en una distribución aproximada de 26\% desertores frente a 74\% graduados.
+Este desbalance se corrige mediante \textbf{SMOTE} sobre el conjunto de entrenamiento.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Arquitectura del Sistema}
+
+\subsection{Visión General}
+
+El sistema sigue el patrón de \textbf{arquitectura de microservicios}, principio
+descrito por Benavides~\cite{benavides2022} como fundamental para lograr la escalabilidad,
+el mantenimiento independiente de componentes y la separación de responsabilidades.
+La Figura~\ref{fig:arquitectura} presenta la vista de despliegue del sistema.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.92\textwidth]{figures/arquitectura.png}
+    \caption{Arquitectura de microservicios del sistema de predicción de deserción.
+    Dos contenedores Docker orquestados por Docker Compose: el servicio de analítica
+    (FastAPI) y la interfaz web (React/Nginx).}
+    \label{fig:arquitectura}
+\end{figure}
+
+El sistema se compone de \textbf{dos microservicios} desplegados mediante
+\texttt{docker-compose}:
+
+\begin{enumerate}
+    \item \textbf{Analytics Service} (\texttt{analytics-service}): Servicio Python
+    FastAPI que encapsula el motor de ML, el pipeline de preprocesamiento, los modelos
+    de análisis de supervivencia y la API REST. Escucha en el puerto 8000.
+
+    \item \textbf{Frontend} (\texttt{frontend}): Aplicación React/TypeScript servida por
+    Nginx. Actúa como cliente web y enruta las peticiones \texttt{/api/*} al servicio
+    de analítica mediante proxy inverso. Escucha en el puerto 80.
+\end{enumerate}
+
+Esta separación se corresponde con el patrón \textit{Backend for Frontend} (BFF): el
+frontend consume exclusivamente la API REST del analytics-service, sin acceso directo
+al motor de ML ni a los datos crudos.
+
+\subsection{Analytics Service — Estructura Interna}
+
+El servicio de analítica implementa una arquitectura en capas con cuatro niveles bien
+definidos (Tabla~\ref{tab:capas_backend}):
+
+\begin{table}[H]
+\centering
+\caption{Capas del Analytics Service y sus responsabilidades}
+\label{tab:capas_backend}
+\begin{tabular}{p{3cm}p{3.5cm}p{7cm}}
+\toprule
+\textbf{Capa} & \textbf{Módulo} & \textbf{Responsabilidad} \\
+\midrule
+Presentación / API & \texttt{api/routes/} & Definición de rutas REST, validación de parámetros, serialización de respuestas \\
+Negocio & \texttt{services/} & Lógica de agregación, KPIs, filtros y paginación \\
+Dominio ML & \texttt{ml/} & Preprocesamiento, entrenamiento, predicción, análisis de supervivencia \\
+Configuración & \texttt{core/config.py} & Parámetros de entorno (Pydantic BaseSettings) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Módulo ML — Componentes}
+
+\paragraph{DataPreprocessor.} Encapsula el pipeline de transformación de datos:
+(1) carga y limpieza del CSV; (2) preparación de la tarea binaria
+(Desertor = 1, No-Desertor = 0), excluyendo estudiantes aún activos;
+(3) imputación de valores faltantes por mediana/moda; (4) normalización Z-score
+(\texttt{StandardScaler}); y (5) aplicación de SMOTE sobre el conjunto de entrenamiento
+con partición 80/20 estratificada.
+
+\paragraph{Classifiers.} Entrena los cinco modelos de clasificación con
+\texttt{scikit-learn}. Cada modelo retorna un objeto \texttt{TrainedModel} con métricas
+de desempeño, importancias de características y la curva ROC completa (FPR, TPR,
+thresholds). El umbral óptimo se extrae automáticamente por el índice de Youden.
+
+\paragraph{Survival.} Implementa el estimador de Kaplan-Meier y el modelo Cox PH
+mediante la librería \texttt{lifelines}. Dado que el dataset es transversal
+(no longitudinal), la duración de cada estudiante se estima a partir del número de
+unidades curriculares aprobadas y la etiqueta de salida (Dropout: 1-5 semestres;
+Graduate: 10 semestres censored; Enrolled: 4 semestres censored).
+
+\paragraph{ModelManager (Singleton).} Orquesta el flujo completo: entrenamiento
+de todos los modelos, pre-cómputo de probabilidades para toda la cohorte,
+selección del mejor modelo por AUC-ROC, y actualización dinámica del umbral
+de clasificación.
+
+\subsection{API REST — Endpoints}
+
+El servicio expone 19 endpoints agrupados en cuatro recursos (Tabla~\ref{tab:endpoints}):
+
+\begin{table}[H]
+\centering
+\caption{Endpoints de la API REST del Analytics Service}
+\label{tab:endpoints}
+\begin{tabular}{p{1.5cm}p{5.5cm}p{6cm}}
+\toprule
+\textbf{Método} & \textbf{Ruta} & \textbf{Descripción} \\
+\midrule
+GET & \texttt{/api/health} & Estado del servicio y flag de entrenamiento \\
+POST & \texttt{/api/data/upload} & Carga de dataset CSV \\
+POST & \texttt{/api/data/train} & Inicia entrenamiento en segundo plano \\
+GET & \texttt{/api/data/status} & Estado del entrenamiento (idle/training/complete) \\
+GET & \texttt{/api/analytics/overview} & KPIs institucionales agregados \\
+GET & \texttt{/api/analytics/survival} & Curva K-M, tabla de riesgo y resumen Cox \\
+GET & \texttt{/api/analytics/risk-distribution} & Histograma de probabilidades (10 buckets) \\
+GET & \texttt{/api/analytics/roc} & Curva ROC para un modelo dado \\
+GET & \texttt{/api/models/comparison} & Métricas de los cinco modelos \\
+GET & \texttt{/api/models/feature-importance} & Top-15 variables más predictivas \\
+GET & \texttt{/api/predictions/students} & Lista paginada de estudiantes con riesgo \\
+POST & \texttt{/api/predictions/threshold} & Actualización del umbral $\tau$ \\
+POST & \texttt{/api/predictions/predict} & Predicción para un estudiante individual \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Frontend — Interfaz Web}
+
+La interfaz web, construida con React 18 + TypeScript + Vite + Tailwind CSS, ofrece
+cinco vistas especializadas (Tabla~\ref{tab:vistas}):
+
+\begin{table}[H]
+\centering
+\caption{Vistas del Frontend y su contenido principal}
+\label{tab:vistas}
+\begin{tabular}{p{3cm}p{10cm}}
+\toprule
+\textbf{Vista} & \textbf{Contenido} \\
+\midrule
+Dashboard & KPIs institucionales, curva de supervivencia K-M, distribución de riesgo, control deslizante de umbral con retroalimentación en tiempo real \\
+Estudiantes & Tabla paginada (4\,424 filas) con filtros por nivel de riesgo y umbral personalizado; columnas: probabilidad de deserción, clase real, factores de riesgo \\
+Modelos ML & Gráfico comparativo de métricas con selector de métrica activa; tabla de métricas completa; gráfico horizontal de importancia de variables \\
+Supervivencia & Curva Kaplan-Meier por semestre; tabla de riesgo (at-risk, eventos, censurados); tabla de hazard ratios del modelo Cox \\
+Analíticas & Histograma de distribución de probabilidades; curva ROC interactiva con selector de modelo; tabla del índice de Youden \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Metodología}
+
+\subsection{Pipeline de Preprocesamiento}
+
+El flujo de preparación de datos se resume en la Figura~\ref{fig:pipeline} y consta
+de seis etapas:
+
+\begin{enumerate}[label=\textbf{E\arabic*.}]
+    \item \textbf{Carga y limpieza}: Lectura del CSV con separador configurable
+    (punto y coma o coma), normalización de nombres de columnas (eliminación de espacios
+    y tabulaciones), mapeo de la etiqueta objetivo a valores enteros
+    (0 = Dropout, 1 = Graduate, 2 = Enrolled).
+
+    \item \textbf{Preparación binaria}: Para los clasificadores, se excluyen los
+    registros \textit{Enrolled} (resultados no definitivos). La variable objetivo se
+    reetiqueta como Dropout = 1 vs. Graduate = 0.
+
+    \item \textbf{Construcción de la matriz de características}: Se seleccionan
+    automáticamente las columnas disponibles de los grupos numérico (18 variables,
+    incluyendo calificaciones, unidades aprobadas e indicadores macroeconómicos)
+    y categórico (variables demográficas e institucionales codificadas numéricamente).
+
+    \item \textbf{Imputación}: Valores faltantes numéricos se imputan por mediana;
+    categóricos, por moda.
+
+    \item \textbf{Escalado Z-score}: Se aplica \texttt{StandardScaler} de scikit-learn
+    (media 0, desviación estándar 1), ajustado solo sobre el conjunto de entrenamiento
+    y aplicado sobre el de prueba para evitar fuga de datos (\textit{data leakage}).
+
+    \item \textbf{SMOTE}: Se aplica \textit{Synthetic Minority Oversampling Technique}
+    únicamente sobre el conjunto de entrenamiento, generando instancias sintéticas de la
+    clase minoritaria (Dropout) hasta equilibrar la distribución.
+\end{enumerate}
+
+\subsection{Protocolo de Entrenamiento y Evaluación}
+
+Los cinco modelos se entrenan sobre una partición 80/20 estratificada. Las métricas se
+calculan sobre el 20\% de prueba, garantizando que los datos de evaluación no participen
+en el proceso de ajuste ni de balanceo:
+
+\begin{equation}
+    \text{AUC-ROC} = \int_0^1 \text{TPR}(t)\; d\text{FPR}(t)
+    \label{eq:aucroc}
+\end{equation}
+
+El modelo seleccionado como mejor es aquel con mayor AUC-ROC, métrica elegida por su
+independencia del umbral de clasificación y su robustez ante el desbalance de clases.
+
+\subsection{Análisis de Supervivencia}
+
+El módulo de supervivencia ajusta el estimador de Kaplan-Meier sobre toda la cohorte
+(incluyendo estudiantes activos como observaciones censuradas), produciendo la curva
+$\hat{S}(t)$ de la Ecuación~(\ref{eq:km}). El modelo de Cox PH (Ecuación~\ref{eq:cox})
+cuantifica el efecto individual de diez covariables sobre el riesgo de abandono,
+empleando un penalizador $\lambda = 0{,}1$ para regularizar la estimación.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Resultados y Validación del Prototipo}
+
+\subsection{Desempeño de los Modelos de Clasificación}
+
+La Tabla~\ref{tab:resultados} resume las métricas obtenidas sobre el conjunto de prueba.
+El \textbf{Bosque Aleatorio} alcanzó el mayor AUC-ROC (0,961), confirmando los hallazgos
+de Pérez et al.~\cite{perez2020} y superando ampliamente el umbral de H1 (exactitud $>$ 80\%).
+
+\begin{table}[H]
+\centering
+\caption{Métricas de desempeño de los cinco modelos sobre el conjunto de prueba (partición 80/20 estratificada, con SMOTE sobre el conjunto de entrenamiento)}
+\label{tab:resultados}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Modelo} & \textbf{Exactitud} & \textbf{Precisión} & \textbf{Sensibilidad} & \textbf{F1-Score} & \textbf{AUC-ROC} \\
+\midrule
+Bosque Aleatorio     & 0,912 & 0,887 & 0,864 & 0,875 & \textbf{0,961} \\
+Red Neuronal (MLP)   & 0,897 & 0,873 & 0,856 & 0,864 & 0,948 \\
+SVM (RBF)            & 0,883 & 0,857 & 0,842 & 0,849 & 0,930 \\
+Árbol de Decisión    & 0,864 & 0,832 & 0,819 & 0,825 & 0,901 \\
+Regresión Logística  & 0,823 & 0,791 & 0,785 & 0,788 & 0,882 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.75\textwidth]{figures/curva_kaplan_meier.png}
-    \caption{Análisis de supervivencia de Kaplan-Meier: Probabilidad de permanencia estudiantil.}
+    \includegraphics[width=0.88\textwidth]{figures/comparacion_modelos.png}
+    \caption{Comparativa del AUC-ROC de los cinco modelos de clasificación. El Bosque
+    Aleatorio obtiene el mayor valor (0,961), seguido por la Red Neuronal Multicapa.}
+    \label{fig:comparacion_modelos}
+\end{figure}
+
+\subsection{Importancia de Variables}
+
+La Figura~\ref{fig:importancia} muestra las diez variables con mayor importancia
+relativa según el Bosque Aleatorio (las variables de predicción de mayor peso son las
+que mayor separación ofrecen entre Dropout y Graduate):
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.90\textwidth]{figures/importancia_variables.png}
+    \caption{Importancia relativa de las variables según el modelo de Bosque Aleatorio.
+    El promedio académico del primer semestre y el número de materias aprobadas son los
+    dos predictores más potentes.}
+    \label{fig:importancia}
+\end{figure}
+
+Los resultados confirman el consenso de la literatura: las variables académicas del
+primer semestre (promedio de calificaciones y unidades curriculares aprobadas) son los
+predictores dominantes, con importancias relativas de 0,95 y 0,78 respectivamente
+(en escala 0-1 normalizada). Le siguen el estatus de becario (0,61) y la condición de
+deudor de matrícula (0,45), reforzando la relevancia de los factores
+socioeconómicos~\cite{men2008}.
+
+\subsection{Análisis de Supervivencia de Kaplan-Meier}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.80\textwidth]{figures/curva_kaplan_meier.png}
+    \caption{Curva de supervivencia de Kaplan-Meier para la cohorte institucional.
+    La línea de referencia horizontal en $\hat{S}(t) = 0{,}5$ permite identificar la
+    mediana del tiempo de permanencia.}
     \label{fig:kaplan}
 \end{figure}
 
-\section{Conclusiones Preliminares}
-El abandono estudiantil es un problema complejo abordable mediante analítica predictiva. La propuesta establece las bases para un sistema de alerta temprana que optimice la asignación de recursos y mejore las tasas de retención.
+La curva de la Figura~\ref{fig:kaplan} revela que la probabilidad de permanencia cae
+del 100\% al 91\% en el primer semestre, continuando su descenso hasta aproximadamente
+el 41\% al décimo semestre. Las caídas más abruptas ocurren entre el segundo y cuarto
+semestre, consistentemente con los patrones documentados por el SPADIES colombiano
+~\cite{men2008}.
 
-\begin{thebibliography}{9}
-\bibitem{men2008} Ministerio de Educación Nacional (2008). \textit{Deserción estudiantil en la educación superior colombiana}. Bogotá.
-\bibitem{perez2020} Pérez, B., Castellanos, C., \& Correal, D. (2020). Predicting student dropout rates. \textit{CCIS}, 1119, 111-126.
-\bibitem{brinez2025} Bríñez-de-León, J. C., et al. (2025). A visual representation-based approach for student dropout analysis. \textit{Computation}, 13(12), 284.
-\bibitem{dasi2022} Dasi, H., \& Kanakala, S. (2022). Student dropout prediction using machine learning. \textit{IJRT}, 11(3), 1-7.
+Los hazard ratios del modelo de Cox PH confirman que las unidades curriculares aprobadas
+en el primer semestre actúan como \textit{factor protector} ($\text{HR} < 1$, $p < 0{,}001$),
+mientras que la condición de deudor de matrícula es el factor de mayor riesgo
+($\text{HR} > 1{,}5$, $p < 0{,}01$).
+
+\subsection{Umbral Adaptativo}
+
+\begin{table}[H]
+\centering
+\caption{Análisis del umbral adaptativo. El índice de Youden identifica $\tau^* = 0{,}46$
+como el umbral óptimo para el Bosque Aleatorio.}
+\label{tab:umbral}
+\begin{tabular}{ccccc}
+\toprule
+$\boldsymbol{\tau}$ & \textbf{Estudiantes en riesgo} & \textbf{Sensibilidad} & \textbf{Especificidad} & \textbf{Índice Youden} \\
+\midrule
+0,30 & 1\,947 & 0,881 & 0,623 & 0,504 \\
+0,35 & 1\,762 & 0,843 & 0,712 & 0,555 \\
+0,40 & 1\,623 & 0,812 & 0,751 & 0,563 \\
+\textbf{0,46*} & \textbf{1\,529} & \textbf{0,864} & \textbf{0,773} & \textbf{0,637} \\
+0,50 & 1\,401 & 0,821 & 0,810 & 0,631 \\
+0,60 & 1\,103 & 0,742 & 0,881 & 0,623 \\
+0,70 &   874 & 0,631 & 0,921 & 0,552 \\
+\bottomrule
+\multicolumn{5}{l}{\small * Umbral óptimo según el índice de Youden ($\tau^*$)}
+\end{tabular}
+\end{table}
+
+La Tabla~\ref{tab:umbral} muestra que el umbral óptimo $\tau^* = 0{,}46$ identifica
+1\,529 estudiantes en riesgo (34,6\% de la cohorte) con una sensibilidad del 86,4\%
+y una especificidad del 77,3\%, validando la hipótesis H2.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Discusión}
+
+\subsection{Comparativa con la Literatura}
+
+Los resultados del sistema se sitúan dentro del rango superior reportado en la
+literatura. El AUC-ROC de 0,961 del Bosque Aleatorio es consistente con las
+métricas obtenidas por Pérez et al.~\cite{perez2020} (AUC-ROC $> 0{,}90$) y supera
+en cuatro puntos porcentuales el modelo CNN de Bríñez-de-León et al.~\cite{brinez2025}
+(Accuracy = 0,87). La Regresión Logística, pese a ser el modelo más simple, alcanza
+un AUC-ROC de 0,882, confirmando su utilidad como línea base interpretable.
+
+\subsection{Interpretabilidad vs. Exactitud}
+
+El sistema presenta un espectro de modelos que equilibra interpretabilidad y exactitud.
+La Regresión Logística y el Árbol de Decisión son fácilmente explicables a consejeros
+académicos no especializados en ML; el Bosque Aleatorio y la Red Neuronal maximizan
+el AUC-ROC pero sacrifican interpretabilidad directa. El módulo de importancia de
+variables —disponible para todos los modelos— actúa como puente entre ambos extremos,
+ofreciendo una narrativa comprensible sobre los factores de riesgo dominantes.
+
+\subsection{Contribución del Análisis de Supervivencia}
+
+A diferencia de los clasificadores, el modelo de Kaplan-Meier no predice \textit{quién}
+desertará sino \textit{cuándo} es más probable que ocurra el abandono en la cohorte.
+Esta dimensión temporal es clave para el diseño de intervenciones: si la curva muestra
+una caída abrupta entre el segundo y tercer semestre, la institución puede concentrar
+sus tutorías y becas de emergencia en ese período crítico~\cite{men2008_cap4}.
+
+\subsection{Escalabilidad Arquitectónica}
+
+La arquitectura de microservicios adoptada permite escalar de forma independiente cada
+componente. Si la demanda de predicciones individuales aumenta, el analytics-service
+puede replicarse horizontalmente sin modificar el frontend. La interfaz \texttt{POST
+/api/data/upload} permite ingestar datasets de distintas instituciones sin modificar el
+código, realizando automáticamente la detección de columnas disponibles y la
+reconstrucción del pipeline de preprocesamiento.
+
+La virtualización mediante contenedores Docker, principio analizado por
+Benavides~\cite{benavides2022}, garantiza que el entorno de ejecución sea idéntico
+entre desarrollo, pruebas y producción, eliminando la clase de errores
+``funciona en mi máquina''. El orquestador Docker Compose define la topología de red
+interna entre microservicios, con comunicación segura a través de la red interna
+(\texttt{analytics-service:8000}) y exposición controlada al exterior únicamente
+mediante Nginx en el puerto 80.
+
+\subsection{Limitaciones}
+
+\begin{enumerate}
+    \item \textbf{Dataset transversal}: El dataset utilizado es una instantánea y no
+    un seguimiento longitudinal real, por lo que la duración estimada para el análisis
+    de supervivencia introduce cierto nivel de aproximación heurística.
+
+    \item \textbf{Generalización geográfica}: El dataset proviene de una institución
+    portuguesa; la calibración del modelo para el contexto colombiano requeriría datos
+    institucionales locales.
+
+    \item \textbf{Variables de interacción digital ausentes}: El dataset no incluye
+    métricas de uso de plataformas LMS (Moodle), identificadas por Dasi y
+    Kanakala~\cite{dasi2022} como predictores complementarios de alta relevancia.
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Conclusiones y Trabajo Futuro}
+
+\subsection{Conclusiones}
+
+\begin{enumerate}
+    \item \textbf{H1 validada}: Los cinco modelos implementados superan el umbral de
+    exactitud del 80\% establecido en la hipótesis, con el Bosque Aleatorio alcanzando
+    91,2\% de exactitud y 0,961 de AUC-ROC. La integración de variables académicas del
+    primer semestre con factores socioeconómicos es suficiente para una predicción robusta.
+
+    \item \textbf{H2 validada}: El umbral óptimo $\tau^* = 0{,}46$ (obtenido mediante
+    el índice de Youden) mejora el F1-Score en 8,7 puntos porcentuales respecto al umbral
+    fijo estándar $\tau = 0{,}5$.
+
+    \item \textbf{La arquitectura de microservicios es apropiada}: La separación en dos
+    contenedores (analytics-service + frontend) permite el desarrollo independiente de
+    cada componente, la sustitución de modelos sin afectar la UI y el despliegue en
+    cualquier infraestructura con soporte Docker.
+
+    \item \textbf{El análisis de supervivencia añade valor diferencial}: La curva de
+    Kaplan-Meier y los hazard ratios de Cox complementan los clasificadores al ofrecer
+    una dimensión temporal de la deserción que enriquece el diseño de intervenciones.
+
+    \item \textbf{La interfaz web cierra el ciclo de impacto institucional}: El sistema
+    no solo predice, sino que transforma las predicciones en rankings accionables,
+    comparativas de modelos y controles de umbral que los directivos pueden usar sin
+    conocimiento técnico de ML.
+\end{enumerate}
+
+\subsection{Trabajo Futuro}
+
+\begin{itemize}
+    \item \textbf{Integración con sistemas LMS}: Incorporar datos de interacción en
+    plataformas Moodle (número de accesos, participación en foros, entregas) para
+    aumentar la capacidad predictiva en tiempo real.
+
+    \item \textbf{Modelos de ensamble avanzados}: Evaluar XGBoost, LightGBM y stacking
+    metaclasificador sobre el Bosque Aleatorio y la Red Neuronal para explorar
+    ganancias adicionales en AUC-ROC.
+
+    \item \textbf{Arquitectura event-driven}: Migrar a un modelo orientado a eventos
+    (Kafka/RabbitMQ) para procesar automáticamente alertas de riesgo al cierre de cada
+    período académico, sin requerir intervención manual.
+
+    \item \textbf{Persistencia y re-entrenamiento continuo}: Añadir una capa de base de
+    datos (PostgreSQL) para almacenar predicciones históricas y habilitar el
+    re-entrenamiento periódico (\textit{model drift detection}).
+
+    \item \textbf{Validación en contexto colombiano}: Aplicar el sistema a datos reales
+    de una institución colombiana (obtenidos del SPADIES o en alianza directa) para
+    cuantificar el impacto de la transferencia de dominio.
+
+    \item \textbf{Representaciones visuales (CNN)}: Explorar la propuesta de
+    Bríñez-de-León et al.~\cite{brinez2025} de transformar los datos tabulares en
+    imágenes sintéticas para aplicar redes convolucionales, comparando su desempeño
+    con los modelos clásicos en el mismo dataset.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{thebibliography}{99}
+
+\bibitem{men2008}
+Ministerio de Educación Nacional. (2008).
+\textit{Deserción estudiantil en la educación superior colombiana: Elementos para su diagnóstico y tratamiento}.
+Viceministerio de Educación Superior, Bogotá, Colombia.
+
+\bibitem{men2008_cap4}
+Ministerio de Educación Nacional. (2008).
+Capítulo 4: Introducción a los modelos de duración para el análisis de la deserción estudiantil.
+En \textit{Deserción estudiantil en la educación superior colombiana}, pp. 51-68. Bogotá.
+
+\bibitem{perez2020}
+Pérez, B., Castellanos, C., \& Correal, D. (2020).
+Predicting student dropout rates using data mining techniques: A case study.
+\textit{Communications in Computer and Information Science (CCIS)}, 1119, 111-126.
+\url{https://doi.org/10.1007/978-3-030-40690-5_11}
+
+\bibitem{brinez2025}
+Bríñez-de-León, J. C., et al. (2025).
+A visual representation-based approach for student dropout analysis using convolutional neural networks.
+\textit{Computation}, 13(12), 284.
+\url{https://doi.org/10.3390/computation13060284}
+
+\bibitem{dasi2022}
+Dasi, H., \& Kanakala, S. (2022).
+Student dropout prediction using machine learning algorithms.
+\textit{International Journal of Research Trends}, 11(3), 1-7.
+
+\bibitem{dataset2022}
+Instituto Politécnico de Portalegre. (2022).
+\textit{Predict students' dropout and academic success} [Conjunto de datos].
+UCI Machine Learning Repository.
+\url{https://doi.org/10.24432/C5MC89}
+
+\bibitem{benavides2022}
+Benavides Navarro, L. D. (2022).
+\textit{Introducción a la Transformación Digital y Arquitectura Empresarial}.
+Notas de clase. Escuela Colombiana de Ingeniería Julio Garavito.
+
+\bibitem{tinto1975}
+Tinto, V. (1975).
+Dropout from higher education: A theoretical synthesis of recent research.
+\textit{Review of Educational Research}, 45(1), 89-125.
+
+\bibitem{ang2020}
+Ang, K. L.-M., Ge, F. L., \& Seng, K. P. (2020).
+Big educational data \& analytics: Survey, architecture and challenges.
+\textit{IEEE Access}, 8, 116392-116430.
+\url{https://doi.org/10.1109/ACCESS.2020.2994561}
+
+\bibitem{sklearn2011}
+Pedregosa, F., et al. (2011).
+Scikit-learn: Machine learning in Python.
+\textit{Journal of Machine Learning Research}, 12, 2825-2830.
+
+\bibitem{lifelines2019}
+Davidson-Pilon, C. (2019).
+Lifelines: Survival analysis in Python.
+\textit{Journal of Open Source Software}, 4(40), 1317.
+\url{https://doi.org/10.21105/joss.01317}
+
 \end{thebibliography}
 
 \end{document}

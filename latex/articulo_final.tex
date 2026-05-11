@@ -286,9 +286,9 @@ riesgo Bajo ($< 20\%$ de estudiantes sobre $\tau$), Medio (20--40\%) o Alto ($> 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Arquitectura de Software y Principios Distribuidos}
 
-El sistema implementa los principios de la Arquitectura Orientada a Servicios (SOA)
-descritos por Benavides~\cite{benavides2022}, con separación clara entre la capa de
-presentación (React), la capa de lógica analítica (FastAPI) y la capa de datos (AWS RDS).
+El sistema implementa una arquitectura orientada a servicios con separación clara entre
+la capa de presentación (React), la capa de lógica analítica (FastAPI) y la capa de
+datos (AWS RDS).
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Estado del Arte}
@@ -377,7 +377,71 @@ Sección~\ref{sec:smote}.
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Arquitectura del Sistema}
 
-\subsection{Despliegue en la Nube (AWS)}
+% ── 8.1 Arquitectura propuesta ────────────────────────────────────────────────
+\subsection{Arquitectura General Propuesta (Diseño Conceptual)}
+
+Durante la etapa de diseño del proyecto se planteó una arquitectura de referencia de
+alta disponibilidad y escalabilidad horizontal para producción empresarial. Es importante
+aclarar que esta arquitectura corresponde a un \textbf{diseño conceptual inicial} y
+\textbf{no fue la solución finalmente implementada}; su propósito es ilustrar el modelo
+arquitectónico objetivo al que podría evolucionar el sistema en un despliegue institucional
+de mayor escala.
+
+La Figura~\ref{fig:arq_propuesta} presenta el diagrama completo de esta arquitectura
+de referencia sobre AWS en la región \texttt{us-east-1}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/arquitectura_propuesta.jpeg}
+    \caption{Arquitectura general propuesta durante la etapa de diseño. Corresponde a
+    un modelo conceptual de alta disponibilidad orientado a producción empresarial, que
+    no fue implementado en el desarrollo final del proyecto.}
+    \label{fig:arq_propuesta}
+\end{figure}
+
+Los componentes centrales de esta arquitectura propuesta son los siguientes:
+
+\begin{itemize}
+    \item \textbf{Route 53 (DNS)}: Servicio de resolución de nombres que dirige el
+    tráfico entrante hacia CloudFront, actuando como punto de entrada único al sistema.
+
+    \item \textbf{CloudFront (CDN)}: Distribuye el contenido estático del frontend
+    (React) alojado en \textbf{Amazon S3}, reduciendo la latencia para usuarios en
+    distintas ubicaciones geográficas.
+
+    \item \textbf{Application Load Balancer (ALB)}: Distribuye el tráfico dinámico
+    (peticiones a la API) entre las instancias EC2 activas en las distintas zonas de
+    disponibilidad, garantizando tolerancia a fallos.
+
+    \item \textbf{VPC con tres zonas de disponibilidad (AZ1, AZ2, AZ3)}: Cada zona
+    contiene una subred pública con un \textit{Auto Scaling Group} de dos instancias
+    EC2 y un \textit{NAT Gateway} para tráfico saliente. La escalabilidad horizontal
+    se gestiona automáticamente según la carga del sistema.
+
+    \item \textbf{Internet Gateway}: Permite la comunicación entre la VPC y el exterior,
+    habilitando el acceso de los usuarios a los recursos públicos del sistema.
+
+    \item \textbf{RDS MySQL Multi-AZ con réplicas}: La capa de datos se distribuye en
+    subredes privadas con tres nodos: una base de datos primaria en AZ1, una réplica
+    de espera (\textit{Standby DB}) en AZ2 sincronizada de forma síncrona, y una
+    réplica de lectura (\textit{Read Replica}) en AZ3 replicada de forma asíncrona.
+    Esta configuración garantiza continuidad del servicio ante fallos de zona y
+    permite distribuir la carga de lecturas.
+\end{itemize}
+
+Esta arquitectura propuesta prioriza la alta disponibilidad, la recuperación ante
+desastres y la escalabilidad automática. No obstante, su implementación requiere
+una inversión en infraestructura y configuración significativamente mayor a la
+alcanzada en el prototipo desarrollado, razón por la cual se optó por la solución
+descrita en la siguiente subsección.
+
+% ── 8.2 Arquitectura implementada ────────────────────────────────────────────
+\subsection{Arquitectura Implementada}
+
+A diferencia del diseño conceptual presentado anteriormente, esta subsección describe
+la \textbf{arquitectura efectivamente desarrollada e implementada} en el proyecto.
+Se trata de una solución funcional desplegada sobre AWS, adecuada para un prototipo
+académico con capacidad de uso institucional real.
 
 El sistema se desplegó sobre Amazon Web Services siguiendo una arquitectura de tres
 capas: presentación, analítica y datos. La Figura~\ref{fig:deployment} muestra la
@@ -743,10 +807,6 @@ Instituto Politécnico de Portalegre. (2022).
 UCI Machine Learning Repository.
 \url{https://doi.org/10.24432/C5MC89}
 
-\bibitem{benavides2022}
-Benavides Navarro, L.~D. (2022).
-\textit{Introducción a la Transformación Digital y Arquitectura Empresarial}.
-Notas de clase. Escuela Colombiana de Ingeniería Julio Garavito.
 
 \bibitem{tinto1975}
 Tinto, V. (1975).
